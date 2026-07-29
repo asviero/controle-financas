@@ -601,3 +601,21 @@ tr.row-atrasado { background: oklch(0.7 0.2 25 / 0.1); }
   .nav-tab:active,
   .danger-btn:active { transform: none; }
 }
+
+/* Rodapé do Desenvolvedor */
+.developer-footer {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.developer-footer a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+.developer-footer a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}

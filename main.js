@@ -400,3 +400,8 @@ ipcMain.handle('drive:backup', async () => {
     return { success: false, message: error.message };
   }
 });
+
+// Abrir links externos no navegador do usuário
+ipcMain.handle('app:openLink', async (event, url) => {
+  await shell.openExternal(url);
+});
