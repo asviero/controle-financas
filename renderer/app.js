@@ -206,15 +206,45 @@ function bindEvents() {
   document.getElementById('managePeopleBtn').onclick = openPeopleModal;
   document.getElementById('peopleCloseBtn').onclick = () => togglePeopleModal(false);
   document.getElementById('addPersonForm').onsubmit = onAddPerson;
-  document.getElementById('newPersonTipo').onchange = (e) => {
-    document.getElementById('newPersonDoc').placeholder = e.target.value === 'PJ' ? 'CNPJ' : 'CPF';
+
+  const tipoSelect = document.getElementById('newPersonTipo');
+  const inputCpf = document.getElementById('newPersonCpf');
+  const inputCnpj = document.getElementById('newPersonCnpj');
+
+  if (tipoSelect) {
+    tipoSelect.onchange = (e) => {
+      const v = e.target.value;
+      if(inputCpf) inputCpf.style.display = (v === 'PF' || v === 'Ambos') ? 'block' : 'none';
+      if(inputCnpj) inputCnpj.style.display = (v === 'PJ' || v === 'Ambos') ? 'block' : 'none';
+    };
+  }
+
+  const maskInput = (input, type) => {
+    if (!input) return;
+    input.addEventListener('input', (e) => {
+      let v = e.target.value.replace(/\D/g, '');
+      if (type === 'cpf') {
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+      } else {
+        v = v.replace(/(\d{2})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d)/, '$1/$2');
+        v = v.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+      }
+      e.target.value = v;
+    });
   };
+
+  maskInput(inputCpf, 'cpf');
+  maskInput(inputCnpj, 'cnpj');
 
   // Modal categorias
   document.getElementById('manageCategoriesBtn').onclick = openCategoriesModal;
   document.getElementById('categoriesCloseBtn').onclick = () => toggleCategoriesModal(false);
   document.getElementById('addCategoryForm').onsubmit = onAddCategory;
-  // -----------------------------
+  
   // Navegação entre views
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.onclick = () => switchView(btn.dataset.view);
@@ -584,21 +614,41 @@ async function onAddPerson(e) {
   const name = document.getElementById('newPersonName').value.trim();
   const color = document.getElementById('newPersonColor').value;
   const tipo = document.getElementById('newPersonTipo').value;
-  const doc = document.getElementById('newPersonDoc').value.trim();
+  const cpf = document.getElementById('newPersonCpf').value.trim();
+  const cnpj = document.getElementById('newPersonCnpj').value.trim();
+  
   if (!name) return;
   
-  const id = 'p' + Date.now();
-  data.people.push({
-    id, name, color, tipo,
-    cpf: tipo === 'PF' ? doc : '',
-    cnpj: tipo === 'PJ' ? doc : ''
-  });
-  data.startingCashBalance[id] = 0;
-  filters.personIds.add(id);
+  const baseId = 'p' + Date.now();
+
+  // Função auxiliar para cadastrar a pessoa corretamente no banco de dados
+  const createProfile = (idSuffix, nameSuffix, pTipo, pCpf, pCnpj) => {
+    const id = baseId + idSuffix;
+    data.people.push({
+      id, name: name + nameSuffix, color, tipo: pTipo,
+      cpf: pCpf, cnpj: pCnpj
+    });
+    data.startingCashBalance[id] = 0;
+    
+    // Se não houver ninguém selecionado no momento, seleciona este novo perfil
+    if (filters.personIds.size === 0) filters.personIds.add(id);
+  };
+
+  // Se a pessoa for PF ou Ambos, cria o perfil PF
+  if (tipo === 'PF' || tipo === 'Ambos') {
+    createProfile(tipo === 'Ambos' ? '_PF' : '', tipo === 'Ambos' ? ' (PF)' : '', 'PF', cpf, '');
+  }
+  
+  // Se a pessoa for PJ ou Ambos, cria o perfil PJ de forma independente
+  if (tipo === 'PJ' || tipo === 'Ambos') {
+    createProfile(tipo === 'Ambos' ? '_PJ' : '', tipo === 'Ambos' ? ' (PJ)' : '', 'PJ', '', cnpj);
+  }
   
   document.getElementById('newPersonName').value = '';
-  document.getElementById('newPersonDoc').value = '';
+  document.getElementById('newPersonCpf').value = '';
+  document.getElementById('newPersonCnpj').value = '';
   
+  window.focus();
   document.getElementById('newPersonName').focus();
   
   renderPeopleList();

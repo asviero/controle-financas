@@ -281,12 +281,16 @@
         <input type="text" id="newPersonName" placeholder="Nome da pessoa" required />
         <input type="color" id="newPersonColor" value="#5aa7e8" />
       </div>
-      <div class="form-row two">
+      <div class="form-row">
         <select id="newPersonTipo">
-          <option value="PF">Pessoa Física (PF)</option>
-          <option value="PJ">Pessoa Jurídica (PJ)</option>
+          <option value="PF">Apenas Pessoa Física (PF)</option>
+          <option value="PJ">Apenas Pessoa Jurídica (PJ)</option>
+          <option value="Ambos">Ambos (PF e PJ)</option>
         </select>
-        <input type="text" id="newPersonDoc" placeholder="CPF" />
+      </div>
+      <div class="form-row two">
+        <input type="text" id="newPersonCpf" placeholder="CPF" maxlength="14" />
+        <input type="text" id="newPersonCnpj" placeholder="CNPJ" maxlength="18" style="display:none;" />
       </div>
       <button type="submit" class="primary-btn" style="width:100%;">Adicionar</button>
     </form>
