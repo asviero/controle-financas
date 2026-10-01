@@ -62,7 +62,10 @@ const askAlert = (message) => showDialog(message);
 async function init() {
   data = await window.financeAPI.getData();
 
-  filters.personIds = new Set(data.people.map(p => p.id));
+  filters.personIds = new Set();
+  if (data.people.length > 0) {
+    filters.personIds.add(data.people[0].id);
+  }
   filters.categories = new Set([...data.categories.income, ...data.categories.expense]);
 
   const months = data.transactions.map(t => monthKey(t.date));
@@ -92,18 +95,28 @@ async function persist() {
 
 /* ===== Filtros: sidebar ===== */
 function renderPeopleFilter() {
+  if (filters.personIds.size === 0 && data.people.length > 0) {
+    filters.personIds.add(data.people[0].id);
+  }
+
   const el = document.getElementById('peopleFilter');
   el.innerHTML = '';
+  
   data.people.forEach(p => {
     const chip = document.createElement('div');
     chip.className = 'chip' + (filters.personIds.has(p.id) ? ' active' : '');
     chip.style.color = filters.personIds.has(p.id) ? p.color : '';
     chip.innerHTML = `<span class="dot" style="background:${p.color}"></span>${p.name}`;
+    
     chip.onclick = () => {
-      filters.personIds.has(p.id) ? filters.personIds.delete(p.id) : filters.personIds.add(p.id);
+      filters.personIds.clear();
+      filters.personIds.add(p.id);
+
       renderPeopleFilter();
       renderAll();
+      renderBillsView();
     };
+    
     el.appendChild(chip);
   });
 }
@@ -689,7 +702,11 @@ function computeBillStatus(bill) {
 const STATUS_LABELS = { pago: 'Pago', pendente: 'Pendente', vence_breve: 'Vence em breve', atrasado: 'Atrasado' };
 
 function getFilteredBills() {
-  return data.bills.filter(b => !billsFilter.month || monthKey(b.vencimento) === billsFilter.month);
+  return data.bills.filter(b => {
+    const matchMonth = !billsFilter.month || monthKey(b.vencimento) === billsFilter.month;
+    const matchPerson = filters.personIds.has(b.personId); // Garante que a conta pertence à pessoa selecionada
+    return matchMonth && matchPerson;
+  });
 }
 
 function populateBillModalSelects() {
