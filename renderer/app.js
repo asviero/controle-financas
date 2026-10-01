@@ -554,7 +554,17 @@ function updateCategoryOptions() {
 function openTxModal(tx) {
   document.getElementById('txModalTitle').textContent = tx ? 'Editar transação' : 'Nova transação';
   document.getElementById('txId').value = tx ? tx.id : '';
-  document.getElementById('txPerson').value = tx ? tx.personId : (data.people[0] ? data.people[0].id : '');
+
+  let activePerson = '';
+  if (tx) {
+    activePerson = tx.personId;
+  } else if (filters.personIds.size > 0) {
+    activePerson = Array.from(filters.personIds)[0];
+  } else if (data.people.length > 0) {
+    activePerson = data.people[0].id;
+  }
+  document.getElementById('txPerson').value = activePerson;
+
   document.getElementById('txType').value = tx ? tx.type : 'expense';
   updateCategoryOptions();
   document.getElementById('txCategory').value = tx ? tx.category : (document.getElementById('txCategory').options[0] || {}).value || '';
@@ -874,7 +884,15 @@ function openBillModal(bill) {
   document.getElementById('billValorReferencia').value = bill ? bill.valorReferencia : '';
   document.getElementById('billFormaPagamento').value = bill ? bill.formaPagamento : (data.paymentMethods[0] || '');
   document.getElementById('billBanco').value = bill ? bill.banco : '';
-  document.getElementById('billPersonId').value = bill ? (bill.personId || '') : '';
+  
+  let activePerson = '';
+  if (bill) {
+    activePerson = bill.personId || '';
+  } else if (filters.personIds.size > 0) {
+    activePerson = Array.from(filters.personIds)[0];
+  }
+  document.getElementById('billPersonId').value = activePerson;
+
   document.getElementById('billValorPago').value = bill && bill.valorPago !== null && bill.valorPago !== undefined ? bill.valorPago : '';
   document.getElementById('billComprovante').value = bill ? bill.comprovante : '';
   document.getElementById('billDeleteBtn').classList.toggle('hidden', !bill);
