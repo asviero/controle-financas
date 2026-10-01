@@ -62,6 +62,19 @@ const askAlert = (message) => showDialog(message);
 async function init() {
   data = await window.financeAPI.getData();
 
+  let dbNeedsUpdate = false;
+  data.people.forEach(p => {
+    if (p.tipo === 'PF' && !p.name.includes('(PF)')) { 
+      p.name += ' (PF)';
+      dbNeedsUpdate = true;
+    }
+    if (p.tipo === 'PJ' && !p.name.includes('(PJ)')) { 
+      p.name += ' (PJ)';
+      dbNeedsUpdate = true;
+    }
+  });
+  if (dbNeedsUpdate) await persist();
+
   filters.personIds = new Set();
   if (data.people.length > 0) {
     filters.personIds.add(data.people[0].id);
@@ -85,6 +98,9 @@ async function init() {
   populateModalSelects();
   populateBillModalSelects();
   bindEvents();
+  
+  await ensureFixedBillsForMonth(billsFilter.month);
+  
   renderAll();
   renderBillsView();
 }
@@ -688,12 +704,12 @@ async function onAddPerson(e) {
 
   // Se a pessoa for PF ou Ambos, cria o perfil PF
   if (tipo === 'PF' || tipo === 'Ambos') {
-    createProfile(tipo === 'Ambos' ? '_PF' : '', tipo === 'Ambos' ? ' (PF)' : '', 'PF', cpf, '');
+    createProfile(tipo === 'Ambos' ? '_PF' : '', ' (PF)', 'PF', cpf, '');
   }
   
-  // Se a pessoa for PJ ou Ambos, cria o perfil PJ de forma independente
+  // Se a pessoa for PJ ou Ambos, cria o perfil PJ
   if (tipo === 'PJ' || tipo === 'Ambos') {
-    createProfile(tipo === 'Ambos' ? '_PJ' : '', tipo === 'Ambos' ? ' (PJ)' : '', 'PJ', '', cnpj);
+    createProfile(tipo === 'Ambos' ? '_PJ' : '', ' (PJ)', 'PJ', '', cnpj);
   }
   
   document.getElementById('newPersonName').value = '';
