@@ -1,31 +1,69 @@
+const sqlite3 = require('sqlite3').verbose();
+const { google } = require('googleapis');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
 
-// Remove acentos e padroniza para comparar nomes de coluna com flexibilidade
-function normalizeHeader(h) {
-  return String(h || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+// --- CONFIGURAÇÃO DO BANCO DE DADOS (SQLite) ---
+const dbPath = path.join(app.getPath('userData'), 'financas.db');
+const db = new sqlite3.Database(dbPath);
+
+db.serialize(() => {
+  // Cria uma tabela para armazenar o estado completo do app como um JSON
+  db.run("CREATE TABLE IF NOT EXISTS app_data (id INTEGER PRIMARY KEY, json_state TEXT)");
+});
+
+// --- FUNÇÕES UTILITÁRIAS DE BANCO DE DADOS ---
+function getDbData() {
+  return new Promise((resolve, reject) => {
+    db.get("SELECT json_state FROM app_data WHERE id = 1", (err, row) => {
+      if (err) return reject(err);
+      
+      if (row && row.json_state) {
+        resolve(JSON.parse(row.json_state));
+      } else {
+        // Estrutura padrão se o banco for novo/vazio (evita crash no app.js)
+        resolve({
+          people: [], 
+          categories: { income: [], expense: [] }, 
+          budgets: [], 
+          transactions: [], 
+          startingCashBalance: {}, 
+          bills: [], 
+          paymentMethods: ["Boleto", "Pix", "Cartão de Crédito", "Débito Automático", "Transferência", "Dinheiro", "Outro"]
+        });
+      }
+    });
+  });
 }
 
-// Aceita número, "1500", "1.500,00" ou "R$ 1.500,00"
+function saveDbData(dataObj) {
+  return new Promise((resolve, reject) => {
+    const jsonStr = JSON.stringify(dataObj);
+    // REPLACE garante que ele sempre atualize a linha com id 1
+    db.run("REPLACE INTO app_data (id, json_state) VALUES (1, ?)", [jsonStr], (err) => {
+      if (err) reject(err);
+      else resolve(true);
+    });
+  });
+}
+
+// --- FUNÇÕES UTILITÁRIAS DE PLANILHA ---
+function normalizeHeader(h) {
+  return String(h || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 function parseCurrency(raw) {
   if (typeof raw === 'number') return raw;
   if (!raw) return null;
   let s = String(raw).trim().replace(/[^0-9,.-]/g, '');
-  if (s.includes(',') && s.includes('.')) {
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else if (s.includes(',')) {
-    s = s.replace(',', '.');
-  }
+  if (s.includes(',') && s.includes('.')) { s = s.replace(/\./g, '').replace(',', '.'); } 
+  else if (s.includes(',')) { s = s.replace(',', '.'); }
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
 
-// Aceita Date (quando cellDates:true), número serial do Excel ou texto dd/mm/aaaa | aaaa-mm-dd
 function parseDateCell(raw) {
   if (raw instanceof Date && !isNaN(raw)) return raw.toISOString().slice(0, 10);
   if (typeof raw === 'number') {
@@ -40,33 +78,8 @@ function parseDateCell(raw) {
   return null;
 }
 
+// --- CONFIGURAÇÃO DA JANELA ---
 let mainWindow;
-
-function getDataFilePath() {
-  return path.join(app.getPath('userData'), 'dados-financas.json');
-}
-
-function ensureDataFile() {
-  const dataPath = getDataFilePath();
-  if (!fs.existsSync(dataPath)) {
-    const samplePath = path.join(__dirname, 'data', 'sample-data.json');
-    const sampleData = fs.readFileSync(samplePath, 'utf-8');
-    fs.writeFileSync(dataPath, sampleData, 'utf-8');
-  }
-  return dataPath;
-}
-
-function readData() {
-  const dataPath = ensureDataFile();
-  const raw = fs.readFileSync(dataPath, 'utf-8');
-  return JSON.parse(raw);
-}
-
-function writeData(data) {
-  const dataPath = ensureDataFile();
-  fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf-8');
-  return true;
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -87,9 +100,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  ensureDataFile();
   createWindow();
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -99,43 +110,41 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ---- IPC: dados ----
-ipcMain.handle('data:get', () => readData());
+// ==========================================
+// --- IPC: COMUNICAÇÃO COM O FRONTEND ---
+// ==========================================
 
-ipcMain.handle('data:save', (_event, data) => writeData(data));
+ipcMain.handle('data:get', async () => {
+  return await getDbData();
+});
 
-ipcMain.handle('data:resetToSample', () => {
+ipcMain.handle('data:save', async (_event, data) => {
+  return await saveDbData(data);
+});
+
+ipcMain.handle('data:resetToSample', async () => {
   const samplePath = path.join(__dirname, 'data', 'sample-data.json');
-  const sampleData = fs.readFileSync(samplePath, 'utf-8');
-  fs.writeFileSync(getDataFilePath(), sampleData, 'utf-8');
-  return JSON.parse(sampleData);
+  let sampleData;
+  try {
+    sampleData = JSON.parse(fs.readFileSync(samplePath, 'utf-8'));
+  } catch (e) {
+    sampleData = { people: [], categories: { income: [], expense: [] }, budgets: [], transactions: [], startingCashBalance: {}, bills: [], paymentMethods: [] };
+  }
+  await saveDbData(sampleData);
+  return sampleData;
 });
 
-ipcMain.handle('data:showFilePath', () => getDataFilePath());
+// Remove o aviso de arquivo local
+ipcMain.handle('data:showFilePath', () => 'Banco de Dados SQLite Integrado');
 
-// Importar um arquivo JSON externo (para substituir pelos dados reais do usuário)
-ipcMain.handle('data:importFromFile', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Importar dados financeiros (JSON)',
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-    properties: ['openFile']
-  });
-  if (result.canceled || result.filePaths.length === 0) return null;
-  const raw = fs.readFileSync(result.filePaths[0], 'utf-8');
-  const parsed = JSON.parse(raw);
-  writeData(parsed);
-  return parsed;
-});
-
-// Importar uma planilha (.xlsx/.xls/.csv) de contas a pagar: conta, vencimento,
-// valor de referência, forma de pagamento, banco. O período é calculado a partir
-// do vencimento, não é uma coluna importada.
+// Importar Contas a Pagar (Planilha)
 ipcMain.handle('bills:importSpreadsheet', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Importar contas a pagar (planilha)',
     filters: [{ name: 'Planilhas', extensions: ['xlsx', 'xls', 'csv'] }],
     properties: ['openFile']
   });
+  
   if (result.canceled || result.filePaths.length === 0) return null;
 
   const workbook = XLSX.readFile(result.filePaths[0], { cellDates: true });
@@ -158,7 +167,8 @@ ipcMain.handle('bills:importSpreadsheet', async () => {
     return '';
   }
 
-  const data = readData();
+  // Puxa os dados atuais do banco
+  const data = await getDbData();
   if (!Array.isArray(data.bills)) data.bills = [];
 
   let imported = 0;
@@ -166,7 +176,8 @@ ipcMain.handle('bills:importSpreadsheet', async () => {
     const conta = String(findValue(row, COLUMN_ALIASES.conta)).trim();
     const vencRaw = findValue(row, COLUMN_ALIASES.vencimento);
     const vencimento = parseDateCell(vencRaw);
-    if (!conta || !vencimento) return; // linha inválida/sem os campos mínimos, pula
+    
+    if (!conta || !vencimento) return;
 
     data.bills.push({
       id: 'b' + Date.now() + '_' + idx,
@@ -182,19 +193,41 @@ ipcMain.handle('bills:importSpreadsheet', async () => {
     imported++;
   });
 
-  writeData(data);
+  await saveDbData(data);
   return { data, imported, totalRows: rows.length };
 });
 
-// Exportar os dados atuais para um arquivo JSON escolhido pelo usuário
-ipcMain.handle('data:exportToFile', async () => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Exportar dados financeiros',
-    defaultPath: 'meus-dados-financas.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }]
-  });
-  if (result.canceled || !result.filePath) return null;
-  const data = readData();
-  fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf-8');
-  return result.filePath;
+// ==========================================
+// --- BACKUP NO GOOGLE DRIVE ---
+// ==========================================
+
+ipcMain.handle('drive:backup', async () => {
+  try {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: path.join(__dirname, 'credentials.json'), 
+      scopes: ['https://www.googleapis.com/auth/drive.file'],
+    });
+    
+    const drive = google.drive({ version: 'v3', auth });
+    
+    const fileMetadata = {
+      name: `Backup_Financas_${new Date().toISOString().slice(0, 10)}.db`,
+    };
+    
+    const media = {
+      mimeType: 'application/x-sqlite3',
+      body: fs.createReadStream(dbPath)
+    };
+    
+    const res = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: 'id'
+    });
+    
+    return { success: true, message: 'Backup concluído!', fileId: res.data.id };
+  } catch (error) {
+    console.error("Erro no backup Drive:", error);
+    return { success: false, message: error.message };
+  }
 });

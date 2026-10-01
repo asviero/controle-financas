@@ -33,9 +33,6 @@ async function init() {
   document.getElementById('dateFrom').value = filters.from;
   document.getElementById('dateTo').value = filters.to;
 
-  const path = await window.financeAPI.showFilePath();
-  document.getElementById('filePathHint').textContent = 'Arquivo local: ' + path;
-
   if (!Array.isArray(data.bills)) data.bills = [];
   if (!Array.isArray(data.paymentMethods)) data.paymentMethods = ["Boleto", "Pix", "Cartão de Crédito", "Débito Automático", "Transferência", "Dinheiro", "Outro"];
   billsFilter.month = todayMonth();
@@ -117,14 +114,31 @@ function bindEvents() {
 
   document.getElementById('tableSearch').oninput = renderTable;
 
-  // Dados
-  document.getElementById('importBtn').onclick = async () => {
-    const result = await window.financeAPI.importFromFile();
-    if (result) { data = result; await init(); }
+  // Backup no Drive e Resetar Banco de Dados
+  document.getElementById('backupDriveBtn').onclick = async () => {
+    const btn = document.getElementById('backupDriveBtn');
+    const originalText = btn.textContent;
+    btn.textContent = 'Fazendo backup...';
+    btn.disabled = true;
+
+    try {
+      const result = await window.financeAPI.backupDrive();
+      if (result && result.success) {
+        alert('Backup concluído com sucesso!\nID do arquivo no Drive: ' + result.fileId);
+      } else {
+        alert('Erro ao fazer backup: ' + (result?.message || 'Erro desconhecido.'));
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Ocorreu um erro ao conectar com o banco de dados.');
+    } finally {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
   };
-  document.getElementById('exportBtn').onclick = () => window.financeAPI.exportToFile();
+
   document.getElementById('resetBtn').onclick = async () => {
-    if (!confirm('Restaurar os dados de exemplo? Isso substitui seus dados atuais.')) return;
+    if (!confirm('ATENÇÃO: Deseja apagar todos os dados do banco SQLite? Esta ação não pode ser desfeita.')) return;
     data = await window.financeAPI.resetToSample();
     await init();
   };
