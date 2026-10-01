@@ -50,6 +50,7 @@
     <section class="filter-block overview-only">
       <h3>Categorias</h3>
       <div id="categoryFilter" class="chip-list scroll"></div>
+      <button id="manageCategoriesBtn" class="link-btn">+ Gerenciar categorias</button>
     </section>
 
     <section class="filter-block bills-only hidden">
@@ -347,6 +348,28 @@
         <button type="submit" class="primary-btn">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal: gerenciar categorias -->
+<div class="modal-overlay" id="categoriesModalOverlay">
+  <div class="modal">
+    <h2>Gerenciar categorias</h2>
+    <div id="categoriesList" class="people-list"></div>
+    <form id="addCategoryForm">
+      <div class="form-row two">
+        <input type="text" id="newCategoryName" placeholder="Nome da categoria" required />
+        <select id="newCategoryType">
+          <option value="expense">Despesa</option>
+          <option value="income">Receita</option>
+        </select>
+      </div>
+      <button type="submit" class="primary-btn" style="width:100%;">Adicionar</button>
+    </form>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button type="button" id="categoriesCloseBtn" class="secondary-btn">Fechar</button>
+    </div>
   </div>
 </div>
 

@@ -158,6 +158,11 @@ function bindEvents() {
     document.getElementById('newPersonDoc').placeholder = e.target.value === 'PJ' ? 'CNPJ' : 'CPF';
   };
 
+  // Modal categorias
+  document.getElementById('manageCategoriesBtn').onclick = openCategoriesModal;
+  document.getElementById('categoriesCloseBtn').onclick = () => toggleCategoriesModal(false);
+  document.getElementById('addCategoryForm').onsubmit = onAddCategory;
+  // -----------------------------
   // Navegação entre views
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.onclick = () => switchView(btn.dataset.view);
@@ -542,6 +547,81 @@ async function onAddPerson(e) {
   populateBillModalSelects();
   renderAll();
   renderBillsView();
+}
+
+/* ===== Modal categorias ===== */
+function openCategoriesModal() {
+  renderCategoriesList();
+  toggleCategoriesModal(true);
+}
+
+function toggleCategoriesModal(open) {
+  document.getElementById('categoriesModalOverlay').classList.toggle('open', open);
+}
+
+function renderCategoriesList() {
+  const el = document.getElementById('categoriesList');
+  let html = '';
+  
+  const buildRow = (cat, type, typeLabel) => `
+    <div class="person-row">
+      <span class="name">${cat} <span class="hint" style="display:inline;">(${typeLabel})</span></span>
+      <button data-remove-cat="${cat}" data-cat-type="${type}">remover</button>
+    </div>
+  `;
+
+  // Monta a lista com as receitas primeiro, depois as despesas
+  data.categories.income.forEach(c => html += buildRow(c, 'income', 'Receita'));
+  data.categories.expense.forEach(c => html += buildRow(c, 'expense', 'Despesa'));
+
+  el.innerHTML = html;
+
+  // Lógica de exclusão
+  el.querySelectorAll('button[data-remove-cat]').forEach(btn => {
+    btn.onclick = async () => {
+      const cat = btn.dataset.removeCat;
+      const type = btn.dataset.catType;
+      
+      if (!confirm(`Remover a categoria "${cat}"? (Transações antigas manterão este nome para histórico).`)) return;
+
+      // Remove da lista principal
+      data.categories[type] = data.categories[type].filter(c => c !== cat);
+      // Remove do filtro ativo
+      filters.categories.delete(cat);
+
+      await persist();
+      renderCategoriesList();
+      renderCategoryFilter();
+      populateModalSelects();
+      renderAll();
+    };
+  });
+}
+
+async function onAddCategory(e) {
+  e.preventDefault();
+  const name = document.getElementById('newCategoryName').value.trim();
+  const type = document.getElementById('newCategoryType').value;
+  
+  if (!name) return;
+
+  // Verifica categoria duplicada
+  if (data.categories.income.includes(name) || data.categories.expense.includes(name)) {
+    alert('Esta categoria já existe.');
+    return;
+  }
+
+  data.categories[type].push(name);
+
+  filters.categories.add(name);
+
+  document.getElementById('newCategoryName').value = '';
+
+  await persist();
+  renderCategoriesList();
+  renderCategoryFilter();
+  populateModalSelects();
+  renderAll();
 }
 
 /* ===== Contas a pagar ===== */
