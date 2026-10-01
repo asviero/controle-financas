@@ -124,18 +124,56 @@ function renderPeopleFilter() {
 function renderCategoryFilter() {
   const el = document.getElementById('categoryFilter');
   el.innerHTML = '';
-  const all = [...data.categories.income, ...data.categories.expense];
-  all.forEach(cat => {
-    const chip = document.createElement('div');
-    chip.className = 'chip' + (filters.categories.has(cat) ? ' active' : '');
-    chip.textContent = cat;
-    chip.onclick = () => {
-      filters.categories.has(cat) ? filters.categories.delete(cat) : filters.categories.add(cat);
-      renderCategoryFilter();
-      renderAll();
-    };
-    el.appendChild(chip);
-  });
+  
+  el.classList.remove('chip-list');
+
+  const renderGroup = (title, categories, colorHex) => {
+    if (!categories || categories.length === 0) return;
+
+    // 1. Cria o título do grupo (Receitas ou Despesas)
+    const titleEl = document.createElement('div');
+    titleEl.textContent = title;
+    titleEl.style.color = colorHex;
+    titleEl.style.fontSize = '0.75rem';
+    titleEl.style.fontWeight = 'bold';
+    titleEl.style.marginTop = '12px';
+    titleEl.style.marginBottom = '8px';
+    titleEl.style.textTransform = 'uppercase';
+    titleEl.style.letterSpacing = '0.5px';
+    el.appendChild(titleEl);
+
+    // 2. Cria o container interno para os botões (chips)
+    const chipContainer = document.createElement('div');
+    chipContainer.className = 'chip-list';
+    
+    categories.forEach(cat => {
+      const isActive = filters.categories.has(cat);
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (isActive ? ' active' : '');
+      chip.textContent = cat;
+      
+      // 3. Pinta o botão com a cor específica do grupo quando estiver selecionado
+      if (isActive) {
+        chip.style.backgroundColor = colorHex;
+        chip.style.borderColor = colorHex;
+        chip.style.color = '#fff';
+      }
+
+      chip.onclick = () => {
+        isActive ? filters.categories.delete(cat) : filters.categories.add(cat);
+        renderCategoryFilter();
+        renderAll();
+      };
+      
+      chipContainer.appendChild(chip);
+    });
+
+    el.appendChild(chipContainer);
+  };
+
+  // Chama a função auxiliar para desenhar os dois blocos com as cores corretas
+  renderGroup('Receitas', data.categories.income, '#3fbf8f'); // Verde
+  renderGroup('Despesas', data.categories.expense, '#e8664a'); // Laranja
 }
 
 function bindEvents() {
