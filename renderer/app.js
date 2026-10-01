@@ -289,16 +289,20 @@ function bindEvents() {
   });
 
   // Contas a pagar: período
-  document.getElementById('billsMonth').onchange = (e) => { billsFilter.month = e.target.value; renderBillsView(); };
+  document.getElementById('billsMonth').onchange = async (e) => { 
+    billsFilter.month = e.target.value; 
+    await ensureFixedBillsForMonth(billsFilter.month);
+    renderBillsView(); 
+  };
   document.getElementById('billsPrevMonth').onclick = () => shiftBillsMonth(-1);
   document.getElementById('billsNextMonth').onclick = () => shiftBillsMonth(1);
-  document.getElementById('billsCurrentMonth').onclick = () => {
+  document.getElementById('billsCurrentMonth').onclick = async () => {
     billsFilter.month = todayMonth();
     document.getElementById('billsMonth').value = billsFilter.month;
+    await ensureFixedBillsForMonth(billsFilter.month);
     renderBillsView();
   };
   document.getElementById('billsAllMonths').onclick = () => { billsFilter.month = null; renderBillsView(); };
-  document.getElementById('billsSearch').oninput = renderBillsTable;
 
   // Contas a pagar: importar planilha
   document.getElementById('importBillsBtn').onclick = async () => {
@@ -884,6 +888,7 @@ function openBillModal(bill) {
   document.getElementById('billValorReferencia').value = bill ? bill.valorReferencia : '';
   document.getElementById('billFormaPagamento').value = bill ? bill.formaPagamento : (data.paymentMethods[0] || '');
   document.getElementById('billBanco').value = bill ? bill.banco : '';
+  document.getElementById('billIsFixed').checked = bill ? !!bill.isFixed : false;
   
   let activePerson = '';
   if (bill) {
@@ -907,8 +912,14 @@ async function onSaveBill(e) {
   e.preventDefault();
   const id = document.getElementById('billId').value;
   const valorPagoRaw = document.getElementById('billValorPago').value;
+  const isFixed = document.getElementById('billIsFixed').checked;
+  
+  const recordId = id || 'b' + Date.now();
+  // Cria um ID de grupo para que o sistema saiba que estas contas mensais são a mesma
+  let fixedGroupId = id ? (data.bills.find(b => b.id === id)?.fixedGroupId || recordId) : recordId;
+  
   const record = {
-    id: id || 'b' + Date.now(),
+    id: recordId,
     conta: document.getElementById('billConta').value.trim(),
     vencimento: document.getElementById('billVencimento').value,
     valorReferencia: parseFloat(document.getElementById('billValorReferencia').value) || 0,
@@ -916,16 +927,26 @@ async function onSaveBill(e) {
     banco: document.getElementById('billBanco').value.trim(),
     personId: document.getElementById('billPersonId').value || null,
     valorPago: valorPagoRaw === '' ? null : parseFloat(valorPagoRaw),
-    comprovante: document.getElementById('billComprovante').value.trim()
+    comprovante: document.getElementById('billComprovante').value.trim(),
+    isFixed: isFixed,
+    fixedGroupId: fixedGroupId
   };
+  
   if (id) {
+    // Se você editar e DESMARCAR a opção de conta fixa, ele cancela a repetição automática
+    if (!isFixed) {
+      data.bills.forEach(b => { if (b.fixedGroupId === fixedGroupId) b.isFixed = false; });
+    }
     const idx = data.bills.findIndex(b => b.id === id);
     data.bills[idx] = record;
   } else {
     data.bills.push(record);
   }
+  
   await persist();
   closeBillModal();
+  
+  await ensureFixedBillsForMonth(monthKey(record.vencimento));
   renderBillsView();
 }
 
@@ -935,6 +956,70 @@ async function onDeleteBill() {
   data.bills = data.bills.filter(b => b.id !== id);
   await persist();
   closeBillModal();
+  renderBillsView();
+}
+
+/* ===== CLONADOR DE CONTAS FIXAS ===== */
+async function ensureFixedBillsForMonth(monthStr) {
+  if (!monthStr) return;
+  let added = false;
+
+  // Encontra a versão mais recente de cada conta fixa para usar como "molde"
+  const fixedTemplates = new Map();
+  data.bills.forEach(b => {
+    if (b.isFixed) {
+        if (!fixedTemplates.has(b.fixedGroupId) || b.vencimento > fixedTemplates.get(b.fixedGroupId).vencimento) {
+          fixedTemplates.set(b.fixedGroupId, b);
+        }
+    }
+  });
+
+  // Para cada conta fixa, verifica se já existe uma cópia no mês selecionado
+  fixedTemplates.forEach(template => {
+    const existsInMonth = data.bills.some(b => b.fixedGroupId === template.fixedGroupId && monthKey(b.vencimento) === monthStr);
+
+    if (!existsInMonth) {
+        const day = template.vencimento.split('-')[2];
+        let targetDate = `${monthStr}-${day}`;
+        
+        // Corrige dias que não existem (ex: 31 de Fevereiro -> 28 de Fevereiro)
+        const d = new Date(targetDate + 'T00:00:00');
+        if (isNaN(d.getTime()) || d.getDate() !== parseInt(day)) {
+          const [y, m] = monthStr.split('-').map(Number);
+          const lastDay = new Date(y, m, 0).getDate();
+          targetDate = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+        }
+
+        data.bills.push({
+          id: 'b' + Date.now() + Math.random().toString(36).substring(2, 5),
+          conta: template.conta,
+          vencimento: targetDate,
+          valorReferencia: template.valorReferencia,
+          formaPagamento: template.formaPagamento,
+          banco: template.banco,
+          personId: template.personId,
+          valorPago: null,
+          comprovante: '',
+          isFixed: true,
+          fixedGroupId: template.fixedGroupId
+        });
+        added = true;
+    }
+  });
+
+  if (added) await persist();
+}
+
+// Substituir a navegação de meses para acionar o Clonador
+async function shiftBillsMonth(delta) {
+  const base = billsFilter.month || todayMonth();
+  let [y, m] = base.split('-').map(Number);
+  m += delta;
+  if (m < 1) { m = 12; y--; } else if (m > 12) { m = 1; y++; }
+  billsFilter.month = `${y}-${String(m).padStart(2, '0')}`;
+  document.getElementById('billsMonth').value = billsFilter.month;
+  
+  await ensureFixedBillsForMonth(billsFilter.month);
   renderBillsView();
 }
 
