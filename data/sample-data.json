@@ -1,0 +1,83 @@
+{
+  "people": [
+    { "id": "p1", "name": "Você", "color": "#3fbf8f", "tipo": "PF", "cpf": "123.456.789-00", "cnpj": "" },
+    { "id": "p2", "name": "Parceiro(a)", "color": "#5aa7e8", "tipo": "PF", "cpf": "987.654.321-00", "cnpj": "" },
+    { "id": "p3", "name": "Minha Empresa (MEI)", "color": "#e8a13b", "tipo": "PJ", "cpf": "", "cnpj": "12.345.678/0001-90" }
+  ],
+  "paymentMethods": ["Boleto", "Pix", "Cartão de Crédito", "Débito Automático", "Transferência", "Dinheiro", "Outro"],
+  "categories": {
+    "income": ["Salário", "Freelance", "Investimentos", "Outros"],
+    "expense": ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"]
+  },
+  "budgets": [
+    { "personId": "p1", "month": "2026-07", "category": "Moradia", "budgeted": 1500 },
+    { "personId": "p1", "month": "2026-07", "category": "Alimentação", "budgeted": 800 },
+    { "personId": "p1", "month": "2026-07", "category": "Transporte", "budgeted": 400 },
+    { "personId": "p1", "month": "2026-07", "category": "Lazer", "budgeted": 300 },
+    { "personId": "p1", "month": "2026-08", "category": "Moradia", "budgeted": 1500 },
+    { "personId": "p1", "month": "2026-08", "category": "Alimentação", "budgeted": 800 },
+    { "personId": "p1", "month": "2026-08", "category": "Transporte", "budgeted": 400 },
+    { "personId": "p1", "month": "2026-08", "category": "Lazer", "budgeted": 300 },
+    { "personId": "p1", "month": "2026-09", "category": "Moradia", "budgeted": 1500 },
+    { "personId": "p1", "month": "2026-09", "category": "Alimentação", "budgeted": 800 },
+    { "personId": "p1", "month": "2026-09", "category": "Transporte", "budgeted": 400 },
+    { "personId": "p1", "month": "2026-09", "category": "Lazer", "budgeted": 300 },
+    { "personId": "p2", "month": "2026-07", "category": "Alimentação", "budgeted": 500 },
+    { "personId": "p2", "month": "2026-07", "category": "Saúde", "budgeted": 250 },
+    { "personId": "p2", "month": "2026-08", "category": "Alimentação", "budgeted": 500 },
+    { "personId": "p2", "month": "2026-08", "category": "Saúde", "budgeted": 250 },
+    { "personId": "p2", "month": "2026-09", "category": "Alimentação", "budgeted": 500 },
+    { "personId": "p2", "month": "2026-09", "category": "Saúde", "budgeted": 250 }
+  ],
+  "transactions": [
+    { "id": "t1", "personId": "p1", "date": "2026-07-05", "type": "income", "category": "Salário", "description": "Salário mensal", "amount": 6500 },
+    { "id": "t2", "personId": "p1", "date": "2026-07-06", "type": "expense", "category": "Moradia", "description": "Aluguel", "amount": 1500 },
+    { "id": "t3", "personId": "p1", "date": "2026-07-10", "type": "expense", "category": "Alimentação", "description": "Supermercado", "amount": 620 },
+    { "id": "t4", "personId": "p1", "date": "2026-07-14", "type": "expense", "category": "Transporte", "description": "Combustível", "amount": 280 },
+    { "id": "t5", "personId": "p1", "date": "2026-07-18", "type": "expense", "category": "Lazer", "description": "Cinema e jantar", "amount": 210 },
+    { "id": "t6", "personId": "p1", "date": "2026-07-22", "type": "income", "category": "Freelance", "description": "Projeto extra", "amount": 900 },
+    { "id": "t7", "personId": "p1", "date": "2026-07-25", "type": "expense", "category": "Assinaturas", "description": "Streaming", "amount": 60 },
+
+    { "id": "t8", "personId": "p1", "date": "2026-08-05", "type": "income", "category": "Salário", "description": "Salário mensal", "amount": 6500 },
+    { "id": "t9", "personId": "p1", "date": "2026-08-06", "type": "expense", "category": "Moradia", "description": "Aluguel", "amount": 1500 },
+    { "id": "t10", "personId": "p1", "date": "2026-08-09", "type": "expense", "category": "Alimentação", "description": "Supermercado", "amount": 710 },
+    { "id": "t11", "personId": "p1", "date": "2026-08-13", "type": "expense", "category": "Transporte", "description": "Combustível", "amount": 260 },
+    { "id": "t12", "personId": "p1", "date": "2026-08-19", "type": "expense", "category": "Saúde", "description": "Farmácia", "amount": 140 },
+    { "id": "t13", "personId": "p1", "date": "2026-08-21", "type": "expense", "category": "Lazer", "description": "Show", "amount": 350 },
+    { "id": "t14", "personId": "p1", "date": "2026-08-28", "type": "income", "category": "Investimentos", "description": "Dividendos", "amount": 180 },
+
+    { "id": "t15", "personId": "p1", "date": "2026-09-05", "type": "income", "category": "Salário", "description": "Salário mensal", "amount": 6500 },
+    { "id": "t16", "personId": "p1", "date": "2026-09-06", "type": "expense", "category": "Moradia", "description": "Aluguel", "amount": 1500 },
+    { "id": "t17", "personId": "p1", "date": "2026-09-08", "type": "expense", "category": "Alimentação", "description": "Supermercado", "amount": 680 },
+    { "id": "t18", "personId": "p1", "date": "2026-09-12", "type": "expense", "category": "Transporte", "description": "Manutenção do carro", "amount": 450 },
+    { "id": "t19", "personId": "p1", "date": "2026-09-15", "type": "expense", "category": "Educação", "description": "Curso online", "amount": 199 },
+    { "id": "t20", "personId": "p1", "date": "2026-09-20", "type": "expense", "category": "Lazer", "description": "Viagem de fim de semana", "amount": 520 },
+    { "id": "t21", "personId": "p1", "date": "2026-09-26", "type": "income", "category": "Freelance", "description": "Consultoria", "amount": 1200 },
+
+    { "id": "t22", "personId": "p2", "date": "2026-07-05", "type": "income", "category": "Salário", "description": "Salário mensal", "amount": 4200 },
+    { "id": "t23", "personId": "p2", "date": "2026-07-11", "type": "expense", "category": "Alimentação", "description": "Restaurantes", "amount": 380 },
+    { "id": "t24", "personId": "p2", "date": "2026-07-17", "type": "expense", "category": "Saúde", "description": "Plano de saúde", "amount": 230 },
+    { "id": "t25", "personId": "p2", "date": "2026-07-24", "type": "expense", "category": "Assinaturas", "description": "Academia", "amount": 120 },
+
+    { "id": "t26", "personId": "p2", "date": "2026-08-05", "type": "income", "category": "Salário", "description": "Salário mensal", "amount": 4200 },
+    { "id": "t27", "personId": "p2", "date": "2026-08-10", "type": "expense", "category": "Alimentação", "description": "Restaurantes", "amount": 410 },
+    { "id": "t28", "personId": "p2", "date": "2026-08-16", "type": "expense", "category": "Saúde", "description": "Plano de saúde", "amount": 230 },
+    { "id": "t29", "personId": "p2", "date": "2026-08-23", "type": "expense", "category": "Outros", "description": "Presente", "amount": 150 },
+
+    { "id": "t30", "personId": "p2", "date": "2026-09-05", "type": "income", "category": "Salário", "description": "Salário mensal", "amount": 4200 },
+    { "id": "t31", "personId": "p2", "date": "2026-09-09", "type": "expense", "category": "Alimentação", "description": "Restaurantes", "amount": 350 },
+    { "id": "t32", "personId": "p2", "date": "2026-09-16", "type": "expense", "category": "Saúde", "description": "Plano de saúde", "amount": 230 },
+    { "id": "t33", "personId": "p2", "date": "2026-09-22", "type": "income", "category": "Outros", "description": "Reembolso", "amount": 90 }
+  ],
+  "startingCashBalance": {
+    "p1": 3200,
+    "p2": 1800
+  },
+  "bills": [
+    { "id": "b1", "conta": "Aluguel", "vencimento": "2026-10-05", "valorReferencia": 1500.00, "formaPagamento": "Transferência", "banco": "Itaú", "personId": "p1", "valorPago": null, "comprovante": "" },
+    { "id": "b2", "conta": "Internet", "vencimento": "2026-10-03", "valorReferencia": 120.00, "formaPagamento": "Débito Automático", "banco": "Itaú", "personId": "p1", "valorPago": 120.00, "comprovante": "https://drive.google.com/exemplo-internet" },
+    { "id": "b3", "conta": "Plano de Saúde", "vencimento": "2026-10-02", "valorReferencia": 230.00, "formaPagamento": "Boleto", "banco": "Nubank", "personId": "p2", "valorPago": null, "comprovante": "" },
+    { "id": "b4", "conta": "DAS (MEI)", "vencimento": "2026-10-20", "valorReferencia": 76.90, "formaPagamento": "Boleto", "banco": "Banco do Brasil", "personId": "p3", "valorPago": null, "comprovante": "" },
+    { "id": "b5", "conta": "Cartão de Crédito", "vencimento": "2026-09-28", "valorReferencia": 950.00, "formaPagamento": "Débito Automático", "banco": "Nubank", "personId": "p1", "valorPago": null, "comprovante": "" }
+  ]
+}

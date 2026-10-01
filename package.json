@@ -1,0 +1,43 @@
+{
+  "name": "painel-financas",
+  "productName": "Painel de Finanças",
+  "version": "1.0.0",
+  "description": "Painel financeiro pessoal/familiar - receitas, despesas, fluxo de caixa e orçamento",
+  "main": "main.js",
+  "author": "Você",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dist": "electron-builder --win",
+    "dist:dir": "electron-builder --win --dir"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.suaempresa.painelfinancas",
+    "productName": "Painel de Finanças",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "data/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "renderer/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

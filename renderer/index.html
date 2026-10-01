@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Painel de Finanças</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">₿</span>
+      <div class="brand-text">
+        <strong>Painel de Finanças</strong>
+        <span>controle pessoal &amp; familiar</span>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-view="overview">Visão geral</button>
+      <button class="nav-tab" data-view="bills">Contas a pagar</button>
+    </nav>
+
+    <section class="filter-block" id="overviewFilters">
+      <h3>Pessoas</h3>
+      <div id="peopleFilter" class="chip-list"></div>
+      <button id="managePeopleBtn" class="link-btn">+ gerenciar pessoas</button>
+    </section>
+
+    <section class="filter-block overview-only">
+      <h3>Período</h3>
+      <div class="field-row">
+        <label>De</label>
+        <input type="month" id="dateFrom" />
+      </div>
+      <div class="field-row">
+        <label>Até</label>
+        <input type="month" id="dateTo" />
+      </div>
+      <div class="quick-ranges">
+        <button data-range="this-month">Este mês</button>
+        <button data-range="last-3">Últimos 3m</button>
+        <button data-range="ytd">No ano</button>
+        <button data-range="all">Tudo</button>
+      </div>
+    </section>
+
+    <section class="filter-block overview-only">
+      <h3>Categorias</h3>
+      <div id="categoryFilter" class="chip-list scroll"></div>
+    </section>
+
+    <section class="filter-block bills-only hidden">
+      <h3>Período das contas</h3>
+      <div class="field-row">
+        <label>Mês</label>
+        <input type="month" id="billsMonth" />
+      </div>
+      <div class="quick-ranges">
+        <button id="billsPrevMonth">◀ Anterior</button>
+        <button id="billsCurrentMonth">Mês atual</button>
+        <button id="billsNextMonth">Próximo ▶</button>
+        <button id="billsAllMonths">Todos os períodos</button>
+      </div>
+    </section>
+
+    <section class="filter-block data-controls">
+      <h3>Meus dados</h3>
+      <p class="hint">Substitua os dados de exemplo pelos seus a qualquer momento.</p>
+      <button id="importBtn" class="secondary-btn">Importar JSON</button>
+      <button id="exportBtn" class="secondary-btn">Exportar JSON</button>
+      <button id="resetBtn" class="secondary-btn danger">Restaurar exemplo</button>
+      <p class="hint small" id="filePathHint"></p>
+    </section>
+  </aside>
+
+  <main class="content">
+
+  <div id="overviewView">
+    <header class="topbar">
+      <div>
+        <h1>Visão geral</h1>
+        <p id="periodLabel" class="subtitle">—</p>
+      </div>
+      <button id="addTransactionBtn" class="primary-btn">+ Nova transação</button>
+    </header>
+
+    <section class="kpi-row">
+      <div class="kpi-card">
+        <span class="kpi-label">Receita</span>
+        <span class="kpi-value income" id="kpiIncome">R$ 0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Despesas</span>
+        <span class="kpi-value expense" id="kpiExpense">R$ 0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Lucro (Receita − Despesas)</span>
+        <span class="kpi-value" id="kpiProfit">R$ 0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Fluxo de caixa do período</span>
+        <span class="kpi-value" id="kpiCashFlow">R$ 0</span>
+      </div>
+      <div class="kpi-card highlight">
+        <span class="kpi-label">Saldo de caixa atual</span>
+        <span class="kpi-value" id="kpiBalance">R$ 0</span>
+      </div>
+    </section>
+
+    <section class="chart-grid">
+      <div class="panel chart-panel wide">
+        <div class="panel-head">
+          <h2>Tendência mensal</h2>
+          <span class="panel-sub">Receita, despesas e saldo acumulado</span>
+        </div>
+        <canvas id="trendChart" height="110"></canvas>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-head">
+          <h2>Divisão de despesas</h2>
+          <span class="panel-sub">Por categoria no período</span>
+        </div>
+        <canvas id="expenseChart"></canvas>
+        <div id="expenseLegend" class="legend"></div>
+      </div>
+    </section>
+
+    <section class="chart-grid">
+      <div class="panel chart-panel wide">
+        <div class="panel-head">
+          <h2>Orçado vs. realizado</h2>
+          <span class="panel-sub">Gasto por categoria frente ao orçamento mensal</span>
+        </div>
+        <canvas id="budgetChart" height="110"></canvas>
+      </div>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="panel-head">
+        <h2>Transações recentes</h2>
+        <input type="search" id="tableSearch" placeholder="Buscar descrição..." />
+      </div>
+      <div class="table-scroll">
+        <table id="txTable">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Pessoa</th>
+              <th>Tipo</th>
+              <th>Categoria</th>
+              <th>Descrição</th>
+              <th class="num">Valor</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="txTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <!-- /overviewView -->
+
+  <div id="billsView" class="hidden">
+    <header class="topbar">
+      <div>
+        <h1>Contas a pagar</h1>
+        <p id="billsPeriodLabel" class="subtitle">—</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="importBillsBtn" class="secondary-btn inline">Importar planilha</button>
+        <button id="addBillBtn" class="primary-btn">+ Nova conta</button>
+      </div>
+    </header>
+
+    <section class="kpi-row">
+      <div class="kpi-card">
+        <span class="kpi-label">Total do período</span>
+        <span class="kpi-value" id="billsKpiTotal">R$ 0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Pago</span>
+        <span class="kpi-value income" id="billsKpiPaid">R$ 0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Pendente</span>
+        <span class="kpi-value" id="billsKpiPending">R$ 0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Atrasadas</span>
+        <span class="kpi-value expense" id="billsKpiOverdue">0</span>
+      </div>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="panel-head">
+        <h2>Contas</h2>
+        <input type="search" id="billsSearch" placeholder="Buscar conta..." />
+      </div>
+      <div class="table-scroll">
+        <table id="billsTable">
+          <thead>
+            <tr>
+              <th>Conta</th>
+              <th>Vencimento</th>
+              <th>Período</th>
+              <th class="num">Valor de Referência</th>
+              <th>Forma de Pagamento</th>
+              <th>Banco</th>
+              <th>Pessoa</th>
+              <th class="num">Valor Pago</th>
+              <th>Status</th>
+              <th>Comprovante</th>
+            </tr>
+          </thead>
+          <tbody id="billsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <!-- /billsView -->
+
+  </main>
+</div>
+
+<!-- Modal: nova/editar transação -->
+<div class="modal-overlay" id="txModalOverlay">
+  <div class="modal">
+    <h2 id="txModalTitle">Nova transação</h2>
+    <form id="txForm">
+      <input type="hidden" id="txId" />
+      <div class="form-row">
+        <label>Pessoa</label>
+        <select id="txPerson" required></select>
+      </div>
+      <div class="form-row two">
+        <div>
+          <label>Tipo</label>
+          <select id="txType" required>
+            <option value="income">Receita</option>
+            <option value="expense">Despesa</option>
+          </select>
+        </div>
+        <div>
+          <label>Data</label>
+          <input type="date" id="txDate" required />
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Categoria</label>
+        <select id="txCategory" required></select>
+      </div>
+      <div class="form-row">
+        <label>Descrição</label>
+        <input type="text" id="txDescription" placeholder="Ex: Supermercado" />
+      </div>
+      <div class="form-row">
+        <label>Valor (R$)</label>
+        <input type="number" id="txAmount" step="0.01" min="0" required />
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="txDeleteBtn" class="danger-btn hidden">Excluir</button>
+        <div class="spacer"></div>
+        <button type="button" id="txCancelBtn" class="secondary-btn">Cancelar</button>
+        <button type="submit" class="primary-btn">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: gerenciar pessoas -->
+<div class="modal-overlay" id="peopleModalOverlay">
+  <div class="modal">
+    <h2>Gerenciar pessoas</h2>
+    <div id="peopleList" class="people-list"></div>
+    <form id="addPersonForm">
+      <div class="form-row two">
+        <input type="text" id="newPersonName" placeholder="Nome da pessoa" required />
+        <input type="color" id="newPersonColor" value="#5aa7e8" />
+      </div>
+      <div class="form-row two">
+        <select id="newPersonTipo">
+          <option value="PF">Pessoa Física (PF)</option>
+          <option value="PJ">Pessoa Jurídica (PJ)</option>
+        </select>
+        <input type="text" id="newPersonDoc" placeholder="CPF" />
+      </div>
+      <button type="submit" class="primary-btn" style="width:100%;">Adicionar</button>
+    </form>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button type="button" id="peopleCloseBtn" class="secondary-btn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: nova/editar conta a pagar -->
+<div class="modal-overlay" id="billModalOverlay">
+  <div class="modal">
+    <h2 id="billModalTitle">Nova conta</h2>
+    <form id="billForm">
+      <input type="hidden" id="billId" />
+      <div class="form-row">
+        <label>Conta</label>
+        <input type="text" id="billConta" placeholder="Ex: Aluguel" required />
+      </div>
+      <div class="form-row two">
+        <div>
+          <label>Vencimento</label>
+          <input type="date" id="billVencimento" required />
+        </div>
+        <div>
+          <label>Valor de Referência (R$)</label>
+          <input type="number" id="billValorReferencia" step="0.01" min="0" required />
+        </div>
+      </div>
+      <div class="form-row two">
+        <div>
+          <label>Forma de Pagamento</label>
+          <select id="billFormaPagamento"></select>
+        </div>
+        <div>
+          <label>Banco</label>
+          <input type="text" id="billBanco" placeholder="Ex: Nubank" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Pessoa</label>
+        <select id="billPersonId">
+          <option value="">— sem pessoa vinculada —</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Valor Pago (baixa — preencha quando pagar)</label>
+        <input type="number" id="billValorPago" step="0.01" min="0" />
+      </div>
+      <div class="form-row">
+        <label>Comprovante (link do Google Drive)</label>
+        <input type="text" id="billComprovante" placeholder="https://drive.google.com/..." />
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="billDeleteBtn" class="danger-btn hidden">Excluir</button>
+        <div class="spacer"></div>
+        <button type="button" id="billCancelBtn" class="secondary-btn">Cancelar</button>
+        <button type="submit" class="primary-btn">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../node_modules/chart.js/dist/chart.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
