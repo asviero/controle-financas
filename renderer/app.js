@@ -9,7 +9,7 @@ let filters = {
 };
 
 let billsFilter = {
-  month: null // 'YYYY-MM' ou null = todos os períodos
+  month: null
 };
 
 let charts = { trend: null, expense: null, budget: null };
@@ -18,6 +18,45 @@ let currentView = 'overview';
 const fmtBRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const monthKey = (dateStr) => dateStr.slice(0, 7);
 const todayMonth = () => new Date().toISOString().slice(0, 7);
+
+function showDialog(message, { confirmMode = false } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;' +
+      'align-items:center;justify-content:center;z-index:99999;';
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" style="background:#1e2330;color:#fff;padding:20px;border-radius:10px;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.5);">
+        <p style="margin:0 0 16px;white-space:pre-line;line-height:1.4;"></p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          ${confirmMode ? '<button type="button" data-r="0">Cancelar</button>' : ''}
+          <button type="button" data-r="1">${confirmMode ? 'Confirmar' : 'OK'}</button>
+        </div>
+      </div>`;
+    overlay.querySelector('p').textContent = message;
+
+    const close = (result) => {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      resolve(result);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(!confirmMode); }
+    };
+
+    overlay.onclick = (e) => {
+      const r = e.target.dataset && e.target.dataset.r;
+      if (r === undefined) return;
+      close(r === '1');
+    };
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-r="1"]').focus();
+  });
+}
+
+const askConfirm = (message) => showDialog(message, { confirmMode: true });
+const askAlert = (message) => showDialog(message);
 
 /* ===== Inicialização ===== */
 async function init() {
@@ -124,13 +163,13 @@ function bindEvents() {
     try {
       const result = await window.financeAPI.backupDrive();
       if (result && result.success) {
-        alert('Backup concluído com sucesso!\nID do arquivo no Drive: ' + result.fileId);
+        await askAlert('Backup concluído com sucesso!\nID do arquivo no Drive: ' + result.fileId);
       } else {
-        alert('Erro ao fazer backup: ' + (result?.message || 'Erro desconhecido.'));
+        await askAlert('Erro ao fazer backup: ' + (result?.message || 'Erro desconhecido.'));
       }
     } catch (error) {
       console.error(error);
-      alert('Ocorreu um erro ao conectar com o banco de dados.');
+      await askAlert('Ocorreu um erro ao conectar com o banco de dados.');
     } finally {
       btn.textContent = originalText;
       btn.disabled = false;
@@ -138,7 +177,7 @@ function bindEvents() {
   };
 
   document.getElementById('resetBtn').onclick = async () => {
-    if (!confirm('ATENÇÃO: Deseja apagar todos os dados do banco SQLite? Esta ação não pode ser desfeita.')) return;
+    if (!(await askConfirm('ATENÇÃO: Deseja apagar todos os dados do banco SQLite? Esta ação não pode ser desfeita.'))) return;
     data = await window.financeAPI.resetToSample();
     await init();
   };
@@ -186,7 +225,7 @@ function bindEvents() {
     if (!result) return;
     data = result.data;
     renderBillsView();
-    alert(`${result.imported} de ${result.totalRows} linha(s) importada(s). Linhas sem "conta" ou "vencimento" válidos foram ignoradas.`);
+    await askAlert(`${result.imported} de ${result.totalRows} linha(s) importada(s). Linhas sem "conta" ou "vencimento" válidos foram ignoradas.`);
   };
 
   // Contas a pagar: modal
@@ -474,7 +513,7 @@ async function onSaveTransaction(e) {
 
 async function onDeleteTransaction() {
   const id = document.getElementById('txId').value;
-  if (!id || !confirm('Excluir esta transação?')) return;
+  if (!id || !(await askConfirm('Excluir esta transação?'))) return;
   data.transactions = data.transactions.filter(t => t.id !== id);
   await persist();
   closeTxModal();
@@ -504,21 +543,25 @@ function renderPeopleList() {
   }).join('');
 
   el.querySelectorAll('button[data-remove]').forEach(btn => {
-    btn.onclick = async () => {
+    btn.onclick = async (e) => {
+      e.preventDefault();
       const id = btn.dataset.remove;
-      if (!confirm('Remover esta pessoa e todas as suas transações/orçamentos/contas?')) return;
+      if (!(await askConfirm('Remover esta pessoa e todas as suas transações/orçamentos/contas?'))) return;
+
       data.people = data.people.filter(p => p.id !== id);
       data.transactions = data.transactions.filter(t => t.personId !== id);
       data.budgets = data.budgets.filter(b => b.personId !== id);
       data.bills.forEach(b => { if (b.personId === id) b.personId = null; });
       delete data.startingCashBalance[id];
-      await persist();
+      filters.personIds.delete(id);
+
       renderPeopleList();
       renderPeopleFilter();
       populateModalSelects();
       populateBillModalSelects();
       renderAll();
       renderBillsView();
+      await persist();
     };
   });
 }
@@ -530,6 +573,7 @@ async function onAddPerson(e) {
   const tipo = document.getElementById('newPersonTipo').value;
   const doc = document.getElementById('newPersonDoc').value.trim();
   if (!name) return;
+  
   const id = 'p' + Date.now();
   data.people.push({
     id, name, color, tipo,
@@ -538,15 +582,22 @@ async function onAddPerson(e) {
   });
   data.startingCashBalance[id] = 0;
   filters.personIds.add(id);
+  
   document.getElementById('newPersonName').value = '';
   document.getElementById('newPersonDoc').value = '';
-  await persist();
+  
+  document.getElementById('newPersonName').focus();
+  
   renderPeopleList();
   renderPeopleFilter();
   populateModalSelects();
   populateBillModalSelects();
-  renderAll();
-  renderBillsView();
+  
+  setTimeout(async () => {
+    renderAll();
+    renderBillsView();
+    await persist();
+  }, 10);
 }
 
 /* ===== Modal categorias ===== */
@@ -570,30 +621,26 @@ function renderCategoriesList() {
     </div>
   `;
 
-  // Monta a lista com as receitas primeiro, depois as despesas
   data.categories.income.forEach(c => html += buildRow(c, 'income', 'Receita'));
   data.categories.expense.forEach(c => html += buildRow(c, 'expense', 'Despesa'));
 
   el.innerHTML = html;
 
-  // Lógica de exclusão
   el.querySelectorAll('button[data-remove-cat]').forEach(btn => {
-    btn.onclick = async () => {
+    btn.onclick = async (e) => {
+      e.preventDefault();
       const cat = btn.dataset.removeCat;
       const type = btn.dataset.catType;
-      
-      if (!confirm(`Remover a categoria "${cat}"? (Transações antigas manterão este nome para histórico).`)) return;
+      if (!(await askConfirm(`Remover a categoria "${cat}"? (Transações antigas manterão este nome para histórico).`))) return;
 
-      // Remove da lista principal
       data.categories[type] = data.categories[type].filter(c => c !== cat);
-      // Remove do filtro ativo
       filters.categories.delete(cat);
 
-      await persist();
       renderCategoriesList();
       renderCategoryFilter();
       populateModalSelects();
       renderAll();
+      await persist();
     };
   });
 }
@@ -605,23 +652,27 @@ async function onAddCategory(e) {
   
   if (!name) return;
 
-  // Verifica categoria duplicada
   if (data.categories.income.includes(name) || data.categories.expense.includes(name)) {
-    alert('Esta categoria já existe.');
+    await askAlert('Esta categoria já existe.');
+    document.getElementById('newCategoryName').focus();
     return;
   }
 
   data.categories[type].push(name);
-
-  filters.categories.add(name);
-
+  filters.categories.add(name); 
+  
   document.getElementById('newCategoryName').value = '';
+  
+  document.getElementById('newCategoryName').focus();
 
-  await persist();
   renderCategoriesList();
   renderCategoryFilter();
   populateModalSelects();
-  renderAll();
+
+  setTimeout(async () => {
+    renderAll();
+    await persist();
+  }, 10);
 }
 
 /* ===== Contas a pagar ===== */
@@ -757,7 +808,7 @@ async function onSaveBill(e) {
 
 async function onDeleteBill() {
   const id = document.getElementById('billId').value;
-  if (!id || !confirm('Excluir esta conta?')) return;
+  if (!id || !(await askConfirm('Excluir esta conta?'))) return;
   data.bills = data.bills.filter(b => b.id !== id);
   await persist();
   closeBillModal();
