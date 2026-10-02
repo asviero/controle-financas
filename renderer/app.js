@@ -334,6 +334,14 @@ function bindEvents() {
   document.getElementById('billCancelBtn').onclick = closeBillModal;
   document.getElementById('billForm').onsubmit = onSaveBill;
   document.getElementById('billDeleteBtn').onclick = onDeleteBill;
+
+  // Modal parcelas
+  const billRepetition = document.getElementById('billRepetition');
+  if (billRepetition) {
+    billRepetition.onchange = (e) => {
+      document.getElementById('installmentCountWrap').style.display = e.target.value === 'installment' ? 'block' : 'none';
+    };
+  }
 }
 
 function switchView(view) {
@@ -876,9 +884,15 @@ function renderBillsTable() {
     const comprovanteCell = b.comprovante
       ? `<a href="${b.comprovante}" class="comprovante-link" target="_blank" onclick="event.stopPropagation()">Ver</a>`
       : '—';
+      
+    let parcelasText = '<span class="hint">Única</span>';
+    if (b.isFixed) parcelasText = 'Fixa';
+    if (b.isInstallment) parcelasText = `<strong>${b.currentInstallment}/${b.totalInstallments}</strong>`;
+
     return `
     <tr data-id="${b.id}" class="row-${status}">
       <td>${b.conta}</td>
+      <td>${parcelasText}</td>
       <td>${formatDate(b.vencimento)}</td>
       <td>${monthKey(b.vencimento)}</td>
       <td class="num">${fmtBRL(b.valorReferencia || 0)}</td>
@@ -889,7 +903,7 @@ function renderBillsTable() {
       <td><span class="status-pill ${status}">${STATUS_LABELS[status]}</span></td>
       <td>${comprovanteCell}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="10" class="hint" style="padding:16px;">Nenhuma conta encontrada para o período selecionado.</td></tr>`;
+  }).join('') || `<tr><td colspan="11" class="hint" style="padding:16px;">Nenhuma conta encontrada para o período selecionado.</td></tr>`;
 
   body.querySelectorAll('tr[data-id]').forEach(row => {
     row.onclick = () => openBillModal(rows.find(b => b.id === row.dataset.id));
@@ -904,7 +918,6 @@ function openBillModal(bill) {
   document.getElementById('billValorReferencia').value = bill ? bill.valorReferencia : '';
   document.getElementById('billFormaPagamento').value = bill ? bill.formaPagamento : (data.paymentMethods[0] || '');
   document.getElementById('billBanco').value = bill ? bill.banco : '';
-  document.getElementById('billIsFixed').checked = bill ? !!bill.isFixed : false;
   
   let activePerson = '';
   if (bill) {
@@ -913,9 +926,34 @@ function openBillModal(bill) {
     activePerson = Array.from(filters.personIds)[0];
   }
   document.getElementById('billPersonId').value = activePerson;
-
   document.getElementById('billValorPago').value = bill && bill.valorPago !== null && bill.valorPago !== undefined ? bill.valorPago : '';
   document.getElementById('billComprovante').value = bill ? bill.comprovante : '';
+  
+  const repSelect = document.getElementById('billRepetition');
+  const instWrap = document.getElementById('installmentCountWrap');
+  
+  if (bill) {
+    repSelect.disabled = true;
+    if (bill.isInstallment) {
+      repSelect.value = 'installment';
+      instWrap.style.display = 'block';
+      document.getElementById('billInstallmentsCount').value = bill.totalInstallments;
+      document.getElementById('billInstallmentsCount').disabled = true;
+    } else if (bill.isFixed) {
+      repSelect.value = 'fixed';
+      instWrap.style.display = 'none';
+    } else {
+      repSelect.value = 'none';
+      instWrap.style.display = 'none';
+    }
+  } else {
+    repSelect.disabled = false;
+    repSelect.value = 'none';
+    instWrap.style.display = 'none';
+    document.getElementById('billInstallmentsCount').value = 2;
+    document.getElementById('billInstallmentsCount').disabled = false;
+  }
+
   document.getElementById('billDeleteBtn').classList.toggle('hidden', !bill);
   document.getElementById('billModalOverlay').classList.add('open');
 }
@@ -928,14 +966,11 @@ async function onSaveBill(e) {
   e.preventDefault();
   const id = document.getElementById('billId').value;
   const valorPagoRaw = document.getElementById('billValorPago').value;
-  const isFixed = document.getElementById('billIsFixed').checked;
   
-  const recordId = id || 'b' + Date.now();
-  // Cria um ID de grupo para que o sistema saiba que estas contas mensais são a mesma
-  let fixedGroupId = id ? (data.bills.find(b => b.id === id)?.fixedGroupId || recordId) : recordId;
+  const repType = document.getElementById('billRepetition').value;
+  const totalInst = parseInt(document.getElementById('billInstallmentsCount').value) || 2;
   
-  const record = {
-    id: recordId,
+  const baseRecord = {
     conta: document.getElementById('billConta').value.trim(),
     vencimento: document.getElementById('billVencimento').value,
     valorReferencia: parseFloat(document.getElementById('billValorReferencia').value) || 0,
@@ -943,26 +978,70 @@ async function onSaveBill(e) {
     banco: document.getElementById('billBanco').value.trim(),
     personId: document.getElementById('billPersonId').value || null,
     valorPago: valorPagoRaw === '' ? null : parseFloat(valorPagoRaw),
-    comprovante: document.getElementById('billComprovante').value.trim(),
-    isFixed: isFixed,
-    fixedGroupId: fixedGroupId
+    comprovante: document.getElementById('billComprovante').value.trim()
   };
-  
+
+  // Função auxiliar para calcular o vencimento exato dos meses seguintes
+  const addMonths = (dateStr, num) => {
+    let [y, m, d] = dateStr.split('-').map(Number);
+    m += num;
+    while (m > 12) { m -= 12; y++; }
+    const lastDay = new Date(y, m, 0).getDate();
+    if (d > lastDay) d = lastDay; // Previne erro de pular 31 de fev para março
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  };
+
   if (id) {
-    // Se você editar e DESMARCAR a opção de conta fixa, ele cancela a repetição automática
-    if (!isFixed) {
-      data.bills.forEach(b => { if (b.fixedGroupId === fixedGroupId) b.isFixed = false; });
-    }
+    // EDIÇÃO: Atualiza apenas a conta/parcela atual
     const idx = data.bills.findIndex(b => b.id === id);
-    data.bills[idx] = record;
+    const existing = data.bills[idx];
+    
+    baseRecord.id = id;
+    baseRecord.isFixed = existing.isFixed;
+    baseRecord.fixedGroupId = existing.fixedGroupId;
+    baseRecord.isInstallment = existing.isInstallment;
+    baseRecord.currentInstallment = existing.currentInstallment;
+    baseRecord.totalInstallments = existing.totalInstallments;
+    baseRecord.installmentGroupId = existing.installmentGroupId;
+    
+    data.bills[idx] = baseRecord;
   } else {
-    data.bills.push(record);
+    // NOVA CONTA
+    if (repType === 'installment') {
+      const groupId = 'inst_' + Date.now();
+      
+      // Gera todas as parcelas de uma vez
+      for (let i = 1; i <= totalInst; i++) {
+        const instRecord = { ...baseRecord };
+        instRecord.id = 'b' + Date.now() + '_' + i;
+        instRecord.vencimento = addMonths(baseRecord.vencimento, i - 1);
+        instRecord.isFixed = false;
+        instRecord.isInstallment = true;
+        instRecord.currentInstallment = i;
+        instRecord.totalInstallments = totalInst;
+        instRecord.installmentGroupId = groupId;
+        
+        // Zera o valor pago e comprovante das parcelas futuras
+        if (i > 1) { 
+          instRecord.valorPago = null; 
+          instRecord.comprovante = ''; 
+        }
+        data.bills.push(instRecord);
+      }
+    } else if (repType === 'fixed') {
+      baseRecord.id = 'b' + Date.now();
+      baseRecord.isFixed = true;
+      baseRecord.fixedGroupId = 'fix_' + Date.now();
+      data.bills.push(baseRecord);
+    } else {
+      baseRecord.id = 'b' + Date.now();
+      data.bills.push(baseRecord);
+    }
   }
   
   await persist();
   closeBillModal();
-  
-  await ensureFixedBillsForMonth(monthKey(record.vencimento));
+  await ensureFixedBillsForMonth(monthKey(baseRecord.vencimento));
   renderBillsView();
 }
 
