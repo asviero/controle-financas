@@ -884,7 +884,7 @@ function renderBillsTable() {
     const comprovanteCell = b.comprovante
       ? `<a href="${b.comprovante}" class="comprovante-link" target="_blank" onclick="event.stopPropagation()">Ver</a>`
       : '—';
-      
+
     let parcelasText = '<span class="hint">Única</span>';
     if (b.isFixed) parcelasText = 'Fixa';
     if (b.isInstallment) parcelasText = `<strong>${b.currentInstallment}/${b.totalInstallments}</strong>`;
@@ -1059,20 +1059,26 @@ async function ensureFixedBillsForMonth(monthStr) {
   if (!monthStr) return;
   let added = false;
 
-  // Encontra a versão mais recente de cada conta fixa para usar como "molde"
   const fixedTemplates = new Map();
+  const fixedStarts = new Map();
+
   data.bills.forEach(b => {
     if (b.isFixed) {
         if (!fixedTemplates.has(b.fixedGroupId) || b.vencimento > fixedTemplates.get(b.fixedGroupId).vencimento) {
           fixedTemplates.set(b.fixedGroupId, b);
         }
+        if (!fixedStarts.has(b.fixedGroupId) || b.vencimento < fixedStarts.get(b.fixedGroupId).vencimento) {
+          fixedStarts.set(b.fixedGroupId, b.vencimento);
+        }
     }
   });
 
-  // Para cada conta fixa, verifica se já existe uma cópia no mês selecionado
   fixedTemplates.forEach(template => {
-    const existsInMonth = data.bills.some(b => b.fixedGroupId === template.fixedGroupId && monthKey(b.vencimento) === monthStr);
+    const startMonth = fixedStarts.get(template.fixedGroupId).slice(0, 7);
+    if (monthStr < startMonth) return;
 
+    const existsInMonth = data.bills.some(b => b.fixedGroupId === template.fixedGroupId && monthKey(b.vencimento) === monthStr);
+    
     if (!existsInMonth) {
         const day = template.vencimento.split('-')[2];
         let targetDate = `${monthStr}-${day}`;
