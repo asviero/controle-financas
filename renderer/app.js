@@ -828,9 +828,15 @@ function computeBillStatus(bill) {
 const STATUS_LABELS = { pago: 'Pago', pendente: 'Pendente', vence_breve: 'Vence em breve', atrasado: 'Atrasado' };
 
 function getFilteredBills() {
+  const currentMonthStr = todayMonth();
+  
   return data.bills.filter(b => {
-    const matchMonth = !billsFilter.month || monthKey(b.vencimento) === billsFilter.month;
-    const matchPerson = filters.personIds.has(b.personId); // Garante que a conta pertence à pessoa selecionada
+    const matchMonth = billsFilter.month
+      ? monthKey(b.vencimento) === billsFilter.month
+      : monthKey(b.vencimento) <= currentMonthStr;
+      
+    const matchPerson = filters.personIds.has(b.personId);
+    
     return matchMonth && matchPerson;
   });
 }
