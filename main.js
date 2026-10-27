@@ -4,7 +4,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
-
+const ExcelJS = require('exceljs');
 const http = require('http');
 const url = require('url');
 
@@ -180,9 +180,8 @@ ipcMain.handle('data:restoreBackup', async () => {
   });
 });
 
-// Exportar Contas a Pagar (Planilha)
-ipcMain.handle('bills:exportSpreadsheet', async (event, billsData, defaultFilename) => {
-  // O defaultPath agora recebe o nome inteligente que enviámos
+// Exportar Contas a Pagar (Planilha com Design e Totais)
+ipcMain.handle('bills:exportSpreadsheet', async (event, billsData, defaultFilename, extraInfo) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Exportar contas a pagar',
     defaultPath: defaultFilename || 'Contas_a_Pagar.xlsx',
@@ -192,12 +191,84 @@ ipcMain.handle('bills:exportSpreadsheet', async (event, billsData, defaultFilena
   if (result.canceled || !result.filePath) return { success: false };
 
   try {
-    const worksheet = XLSX.utils.json_to_sheet(billsData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Contas");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Contas');
 
-    XLSX.writeFile(workbook, result.filePath);
+    if (billsData && billsData.length > 0) {
+      // 1. Linha do Período no topo do Excel
+      worksheet.addRow(['Período Selecionado:', extraInfo.period]);
+      worksheet.addRow([]); // Linha 2 em branco para dar um respiro
+      
+      // 2. Cabeçalhos da tabela (agora na linha 3)
+      const headers = Object.keys(billsData[0]);
+      worksheet.addRow(headers);
+
+      // 3. Inserir as linhas de Dados
+      billsData.forEach(item => {
+        worksheet.addRow(Object.values(item));
+      });
+
+      // 4. Criar e inserir a linha de Total no final da tabela
+      const totalRow = [];
+      headers.forEach((h, i) => {
+        if (h === 'Valor de Referência (R$)') {
+          totalRow[i] = 'TOTAL PAGO:'; // Texto alinhado antes do valor
+        } else if (h === 'Valor Pago (R$)') {
+          totalRow[i] = extraInfo.totalPaid; // O valor total em si
+        } else {
+          totalRow[i] = ''; // Deixa o resto das colunas em branco na última linha
+        }
+      });
+      const addedTotalRow = worksheet.addRow(totalRow);
+
+      // === ESTILOS VISUAIS ===
+      
+      // Estilo do Período (Topo)
+      worksheet.getCell('A1').font = { bold: true };
+      worksheet.getCell('B1').alignment = { horizontal: 'left' };
+
+      // Estilo do Cabeçalho da Tabela
+      worksheet.getRow(3).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF262F3B' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+
+      // Estilo dos Dados (Centralizar e formatar moeda)
+      const lastRow = worksheet.rowCount;
+      for (let r = 4; r <= lastRow; r++) {
+        worksheet.getRow(r).eachCell((cell) => {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          
+          // Se for um número, formata nativamente como Moeda (R$) no Excel
+          if (typeof cell.value === 'number') {
+            cell.numFmt = '"R$"#,##0.00';
+          }
+        });
+      }
+
+      // Estilo da Linha de Total (Fundo cinza claro e Negrito)
+      addedTotalRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } }; 
+      });
+
+      // Auto-ajuste de largura das colunas
+      for (let c = 1; c <= headers.length; c++) {
+        let maxLength = 0;
+        worksheet.getColumn(c).eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+          if (rowNumber >= 3) { // Mede apenas da tabela para baixo
+            const val = cell.value ? cell.value.toString() : '';
+            if (val.length > maxLength) maxLength = val.length;
+          }
+        });
+        worksheet.getColumn(c).width = maxLength < 12 ? 14 : maxLength + 4;
+      }
+    }
+
+    await workbook.xlsx.writeFile(result.filePath);
     return { success: true, filePath: result.filePath };
+    
   } catch (error) {
     console.error('Erro ao exportar planilha:', error);
     return { success: false, message: error.message };
