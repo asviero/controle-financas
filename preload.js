@@ -8,5 +8,7 @@ contextBridge.exposeInMainWorld('financeAPI', {
   importFromFile: () => ipcRenderer.invoke('data:importFromFile'),
   exportToFile: () => ipcRenderer.invoke('data:exportToFile'),
   importBillsSpreadsheet: () => ipcRenderer.invoke('bills:importSpreadsheet'),
-  backupDrive: () => ipcRenderer.invoke('drive:backup')
+  backupDrive: () => ipcRenderer.invoke('drive:backup'),
+
+  restoreBackup: () => ipcRenderer.invoke('data:restoreBackup')
 });

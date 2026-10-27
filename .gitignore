@@ -1,3 +1,12 @@
 node_modules/
 credentials.json
 data/sample-data.json
+
+# Credenciais do Google Cloud
+oauth_credentials.json
+
+# Sessão e acesso ao Drive do usuário (MUITO CRÍTICO)
+google_token.json
+
+# Banco de dados local com informações financeiras reais
+financas.db

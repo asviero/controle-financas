@@ -342,6 +342,27 @@ function bindEvents() {
       document.getElementById('installmentCountWrap').style.display = e.target.value === 'installment' ? 'block' : 'none';
     };
   }
+
+  // Restaurar Backup Local
+  document.getElementById('importBackupBtn').onclick = async () => {
+    if (!confirm('ATENÇÃO: Restaurar um backup irá apagar e substituir TODOS os seus dados atuais. Deseja continuar?')) return;
+    
+    try {
+      const result = await window.financeAPI.restoreBackup();
+      if (result && result.canceled) return; // O utilizador apenas fechou a janela do Windows
+      
+      if (result && result.success) {
+        data = result.data;
+        await init(); // Recarrega todas as tabelas, gráficos e filtros com os novos dados
+        alert('Backup restaurado com sucesso! Os seus dados foram recuperados.');
+      } else {
+        alert('Erro ao restaurar backup: ' + (result?.message || 'Arquivo inválido.'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Falha de comunicação ao processar o arquivo.');
+    }
+  };
 }
 
 function switchView(view) {
