@@ -320,13 +320,63 @@ function bindEvents() {
   };
   document.getElementById('billsAllMonths').onclick = () => { billsFilter.month = null; renderBillsView(); };
 
-  // Contas a pagar: importar planilha
-  document.getElementById('importBillsBtn').onclick = async () => {
-    const result = await window.financeAPI.importBillsSpreadsheet();
-    if (!result) return;
-    data = result.data;
-    renderBillsView();
-    await askAlert(`${result.imported} de ${result.totalRows} linha(s) importada(s). Linhas sem "conta" ou "vencimento" válidos foram ignoradas.`);
+  // Contas a pagar: exportar planilha
+  document.getElementById('exportBillsBtn').onclick = async () => {
+    // 1. Pega apenas as contas filtradas
+    const filteredBills = getFilteredBills();
+
+    if (filteredBills.length === 0) {
+      await askAlert('Não há contas para exportar neste período.');
+      return;
+    }
+
+    // 2. Prepara os dados para as colunas do Excel
+    const billsToExport = filteredBills.map(b => {
+      const pessoa = data.people.find(p => p.id === b.personId);
+      const statusId = computeBillStatus(b);
+      
+      let parcelasText = 'Única';
+      if (b.isFixed) parcelasText = 'Fixa';
+      if (b.isInstallment) parcelasText = `${b.currentInstallment}/${b.totalInstallments}`;
+
+      return {
+        "Conta": b.conta,
+        "Vencimento": formatDate(b.vencimento),
+        "Mês de Referência": monthKey(b.vencimento),
+        "Parcelas": parcelasText,
+        "Valor de Referência (R$)": b.valorReferencia || 0,
+        "Valor Pago (R$)": b.valorPago || 0,
+        "Status": STATUS_LABELS[statusId],
+        "Forma de Pagamento": b.formaPagamento || '',
+        "Banco": b.banco || '',
+        "Comprovante": b.comprovante || ''
+      };
+    });
+
+    // 3. Descobre a pessoa selecionada para formatar o nome do arquivo
+    let defaultFilename = 'Contas_Todas.xlsx';
+    if (filters.personIds.size > 0) {
+      const activePersonId = Array.from(filters.personIds)[0];
+      const person = data.people.find(p => p.id === activePersonId);
+      if (person) {
+        // Transforma "Nome Sobrenome (PJ)" em "Nome_Sobrenome_PJ"
+        const safeName = person.name.replace(/\s+\(/, '_').replace(/\)/, '').replace(/\s+/g, '_');
+        defaultFilename = `Contas_${safeName}.xlsx`;
+      }
+    }
+
+    // 4. Envia os dados e o nome do arquivo para o main.js
+    try {
+      const result = await window.financeAPI.exportBillsSpreadsheet(billsToExport, defaultFilename);
+      if (result && result.success) {
+        await askAlert('Planilha exportada com sucesso!\nSalva em: ' + result.filePath);
+      } else if (result && result.message) {
+        await askAlert('Erro ao exportar: ' + result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      await askAlert('Ocorreu um erro inesperado ao exportar.');
+    }
   };
 
   // Contas a pagar: modal

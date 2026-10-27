@@ -180,64 +180,28 @@ ipcMain.handle('data:restoreBackup', async () => {
   });
 });
 
-// Importar Contas a Pagar (Planilha)
-ipcMain.handle('bills:importSpreadsheet', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Importar contas a pagar (planilha)',
-    filters: [{ name: 'Planilhas', extensions: ['xlsx', 'xls', 'csv'] }],
-    properties: ['openFile']
+// Exportar Contas a Pagar (Planilha)
+ipcMain.handle('bills:exportSpreadsheet', async (event, billsData, defaultFilename) => {
+  // O defaultPath agora recebe o nome inteligente que enviámos
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Exportar contas a pagar',
+    defaultPath: defaultFilename || 'Contas_a_Pagar.xlsx',
+    filters: [{ name: 'Planilha Excel', extensions: ['xlsx'] }]
   });
   
-  if (result.canceled || result.filePaths.length === 0) return null;
+  if (result.canceled || !result.filePath) return { success: false };
 
-  const workbook = XLSX.readFile(result.filePaths[0], { cellDates: true });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  try {
+    const worksheet = XLSX.utils.json_to_sheet(billsData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Contas");
 
-  const COLUMN_ALIASES = {
-    conta: ['conta', 'nomedaconta', 'descricao'],
-    vencimento: ['vencimento', 'datadevencimento', 'data'],
-    valorReferencia: ['valorreferencia', 'valorderferencia', 'valor', 'valorprevisto'],
-    formaPagamento: ['formadepagamento', 'formapagamento', 'pagamento'],
-    banco: ['banco', 'bancovinculado']
-  };
-
-  function findValue(rowObj, aliases) {
-    const keys = Object.keys(rowObj);
-    for (const key of keys) {
-      if (aliases.includes(normalizeHeader(key))) return rowObj[key];
-    }
-    return '';
+    XLSX.writeFile(workbook, result.filePath);
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    console.error('Erro ao exportar planilha:', error);
+    return { success: false, message: error.message };
   }
-
-  // Puxa os dados atuais do banco
-  const data = await getDbData();
-  if (!Array.isArray(data.bills)) data.bills = [];
-
-  let imported = 0;
-  rows.forEach((row, idx) => {
-    const conta = String(findValue(row, COLUMN_ALIASES.conta)).trim();
-    const vencRaw = findValue(row, COLUMN_ALIASES.vencimento);
-    const vencimento = parseDateCell(vencRaw);
-    
-    if (!conta || !vencimento) return;
-
-    data.bills.push({
-      id: 'b' + Date.now() + '_' + idx,
-      conta,
-      vencimento,
-      valorReferencia: parseCurrency(findValue(row, COLUMN_ALIASES.valorReferencia)) || 0,
-      formaPagamento: String(findValue(row, COLUMN_ALIASES.formaPagamento)).trim(),
-      banco: String(findValue(row, COLUMN_ALIASES.banco)).trim(),
-      personId: null,
-      valorPago: null,
-      comprovante: ''
-    });
-    imported++;
-  });
-
-  await saveDbData(data);
-  return { data, imported, totalRows: rows.length };
 });
 
 // ==========================================
