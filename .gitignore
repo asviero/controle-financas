@@ -10,3 +10,6 @@ google_token.json
 
 # Banco de dados local com informações financeiras reais
 financas.db
+
+# Pasta com o .exe
+dist/

@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "description": "Painel financeiro - contas a pagar e gestão financeira",
   "main": "main.js",
-  "author": "Angelo S. Viero",
+  "author": "Angelo da Silva Viero",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
+    "postinstall": "electron-builder install-app-deps",
     "start": "electron . --no-sandbox",
     "build": "electron-builder --win",
     "dist": "electron-builder --win",
@@ -26,8 +27,11 @@
   "build": {
     "appId": "vs_financas",
     "productName": "Painel de Finanças",
-    "asar": false,
-    "npmRebuild": false,
+    "asar": true,
+    "npmRebuild": true,
+    "asarUnpack": [
+      "**/node_modules/sqlite3/**/*"
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -38,7 +42,7 @@
       "oauth_credentials.json"
     ],
     "win": {
-      "target": "nsis",
+      "target": "portable",
       "icon": "renderer/assets/icon.ico"
     },
     "nsis": {
