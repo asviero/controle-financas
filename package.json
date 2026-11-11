@@ -2,18 +2,18 @@
   "name": "painel-financas",
   "productName": "Painel de Finanças",
   "version": "1.0.0",
-  "description": "Painel financeiro pessoal/familiar - receitas, despesas, fluxo de caixa e orçamento",
+  "description": "Painel financeiro - contas a pagar e gestão financeira",
   "main": "main.js",
-  "author": "Você",
+  "author": "Angelo S. Viero",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "start": "electron . --no-sandbox",
+    "build": "electron-builder --win",
     "dist": "electron-builder --win",
     "dist:dir": "electron-builder --win --dir"
   },
   "dependencies": {
-    "chart.js": "^4.4.4",
     "exceljs": "^4.4.0",
     "googleapis": "^182.0.0",
     "sqlite3": "^6.0.1",
@@ -24,15 +24,18 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.suaempresa.painelfinancas",
+    "appId": "vs_financas",
     "productName": "Painel de Finanças",
+    "asar": false,
+    "npmRebuild": false,
     "files": [
       "main.js",
       "preload.js",
       "renderer/**/*",
       "data/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "oauth_credentials.json"
     ],
     "win": {
       "target": "nsis",

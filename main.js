@@ -81,17 +81,18 @@ function parseDateCell(raw) {
   return null;
 }
 
-// --- CONFIGURAÇÃO DA JANELA ---
 let mainWindow;
 
 function createWindow() {
+  const iconPath = path.join(__dirname, 'renderer', 'assets', 'icon.ico');
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#11151b',
-    icon: path.join(__dirname, 'icon.png'),
+    icon: fs.existsSync(iconPath) ? iconPath : path.join(__dirname, 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -104,7 +105,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  app.setAppUserModelId('vs_financas');
+
   createWindow();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
